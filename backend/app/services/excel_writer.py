@@ -260,25 +260,25 @@ def _apply_cell_style(ws, row: int, col: int, value: Any, is_header: bool = Fals
         cell.number_format = fmt
 
 
-def _write_year_headers(ws, start_row: int, label: str, years: list[int],
+def _write_year_headers(ws, start_row: int, label: str, periods: list[str],
                         label_col: int = 2):
-    """Write section header + year column headers."""
+    """Write section header + period column headers."""
     _apply_cell_style(ws, start_row, label_col, label, is_header=True)
-    for i, year in enumerate(years):
-        _apply_cell_style(ws, start_row, label_col + 1 + i, year, is_header=True)
+    for i, period in enumerate(periods):
+        _apply_cell_style(ws, start_row, label_col + 1 + i, period, is_header=True)
 
 
-def _write_data_row(ws, row: int, label: str, data: dict[int, Any] | None,
-                    years: list[int], label_col: int = 2,
+def _write_data_row(ws, row: int, label: str, data: dict[str, Any] | None,
+                    periods: list[str], label_col: int = 2,
                     is_section: bool = False, fmt: str | None = NUMBER_FORMAT):
-    """Write a label + yearly values into a row. If data is None, leave value cells blank."""
+    """Write a label + periodic values into a row. If data is None, leave value cells blank."""
     _apply_cell_style(ws, row, label_col, label, is_section=is_section)
     if data is None:
-        for i, year in enumerate(years):
+        for i, period in enumerate(periods):
             _apply_cell_style(ws, row, label_col + 1 + i, "", is_section=is_section)
     else:
-        for i, year in enumerate(years):
-            val = data.get(year, 0)
+        for i, period in enumerate(periods):
+            val = data.get(period, 0)
             if pd.isna(val):
                 val = 0
             _apply_cell_style(ws, row, label_col + 1 + i, val, fmt=fmt, is_section=is_section)
@@ -288,8 +288,8 @@ def _write_data_row(ws, row: int, label: str, data: dict[int, Any] | None,
 
 def _build_bctc_sheet(
     wb: Workbook,
-    mapped_data: dict[str, dict[str, dict[int, Any]]],
-    years: list[int],
+    mapped_data: dict[str, dict[str, dict[str, Any]]],
+    periods: list[str],
 ):
     """Build the main 'BCTC du phong' sheet with PL + BS + CF sections."""
     ws = wb.active
@@ -298,12 +298,12 @@ def _build_bctc_sheet(
     # Set column widths
     ws.column_dimensions["A"].width = 3
     ws.column_dimensions["B"].width = 55
-    for i, _ in enumerate(years):
+    for i, _ in enumerate(periods):
         col_letter = get_column_letter(3 + i)
         ws.column_dimensions[col_letter].width = 18
 
     # ── Profit & Loss Section ──
-    _write_year_headers(ws, 1, "PL", years)
+    _write_year_headers(ws, 1, "PL", periods)
 
     is_data = mapped_data.get("income_statement", {})
     
@@ -311,43 +311,43 @@ def _build_bctc_sheet(
     tax_rate_data = {}
     pbt = is_data.get("profit_before_tax", {})
     tax = is_data.get("current_tax_expense", {})
-    for y in years:
-        pbt_val = pbt.get(y, 0)
-        tax_val = tax.get(y, 0)
+    for p in periods:
+        pbt_val = pbt.get(p, 0)
+        tax_val = tax.get(p, 0)
         if pbt_val and pbt_val != 0:
-            tax_rate_data[y] = tax_val / pbt_val
+            tax_rate_data[p] = tax_val / pbt_val
             
     # Calculate Profit Margin (% LNST)
     margin_data = {}
     rev = is_data.get("net_revenue", {})
     pat = is_data.get("profit_after_tax", {})
-    for y in years:
-        rev_val = rev.get(y, 0)
-        pat_val = pat.get(y, 0)
+    for p in periods:
+        rev_val = rev.get(p, 0)
+        pat_val = pat.get(p, 0)
         if rev_val and rev_val != 0:
-            margin_data[y] = pat_val / rev_val
+            margin_data[p] = pat_val / rev_val
             
     for row_idx, label in PL_LABELS.items():
         is_section = "Tổng" in label or "Lợi nhuận" in label or label.isupper()
         fmt = PERCENT_FORMAT if "%" in label or "Thuế suất" in label else NUMBER_FORMAT
         
         if row_idx == 20: # Thuế suất
-            _write_data_row(ws, row_idx, label, tax_rate_data, years, is_section=is_section, fmt=fmt)
+            _write_data_row(ws, row_idx, label, tax_rate_data, periods, is_section=is_section, fmt=fmt)
             continue
         if row_idx == 24: # % LNST
-            _write_data_row(ws, row_idx, label, margin_data, years, is_section=is_section, fmt=fmt)
+            _write_data_row(ws, row_idx, label, margin_data, periods, is_section=is_section, fmt=fmt)
             continue
             
         internal_key = REVERSE_PL_MAP.get(row_idx)
         if not internal_key:
-            _write_data_row(ws, row_idx, label, None, years, is_section=is_section)
+            _write_data_row(ws, row_idx, label, None, periods, is_section=is_section)
         else:
             data = is_data.get(internal_key, {})
-            _write_data_row(ws, row_idx, label, data, years, is_section=is_section, fmt=fmt)
+            _write_data_row(ws, row_idx, label, data, periods, is_section=is_section, fmt=fmt)
 
     # ── Balance Sheet Section ──
     bs_start = 30
-    _write_year_headers(ws, bs_start, "BS", years)
+    _write_year_headers(ws, bs_start, "BS", periods)
 
     bs_data = mapped_data.get("balance_sheet", {})
     for row_idx, label in BS_LABELS.items():
@@ -356,14 +356,14 @@ def _build_bctc_sheet(
         
         internal_key = REVERSE_BS_MAP.get(row_idx)
         if not internal_key:
-            _write_data_row(ws, actual_row, label, None, years, is_section=is_section)
+            _write_data_row(ws, actual_row, label, None, periods, is_section=is_section)
         else:
             data = bs_data.get(internal_key, {})
-            _write_data_row(ws, actual_row, label, data, years, is_section=is_section)
+            _write_data_row(ws, actual_row, label, data, periods, is_section=is_section)
 
     # ── Cash Flow Section ──
     cf_start = 158
-    _write_year_headers(ws, cf_start, "CF", years)
+    _write_year_headers(ws, cf_start, "CF", periods)
 
     cf_data = mapped_data.get("cash_flow", {})
     for row_idx, label in CF_LABELS.items():
@@ -372,10 +372,10 @@ def _build_bctc_sheet(
         
         internal_key = REVERSE_CF_MAP.get(row_idx)
         if not internal_key:
-            _write_data_row(ws, actual_row, label, None, years, is_section=is_section)
+            _write_data_row(ws, actual_row, label, None, periods, is_section=is_section)
         else:
             data = cf_data.get(internal_key, {})
-            _write_data_row(ws, actual_row, label, data, years, is_section=is_section)
+            _write_data_row(ws, actual_row, label, data, periods, is_section=is_section)
 
 
 def _build_revenue_sheet(
@@ -639,9 +639,8 @@ def _build_assumptions_sheet(wb: Workbook, years: list[int]):
 
 def generate_excel(
     ticker: str,
-    mapped_data: dict[str, dict[str, dict[int, Any]]],
-    year_from: int,
-    year_to: int,
+    mapped_data: dict[str, dict[str, dict[str, Any]]],
+    periods: list[str],
     output_dir: str,
 ) -> str:
     """
@@ -653,8 +652,8 @@ def generate_excel(
         Stock ticker (used in filename).
     mapped_data : dict
         Output of data_mapper.map_financial_data().
-    year_from, year_to : int
-        Year range for column headers.
+    periods : list[str]
+        List of requested periods.
     output_dir : str
         Directory to save the output file.
 
@@ -663,16 +662,18 @@ def generate_excel(
     str
         Absolute path to the generated .xlsx file.
     """
-    years = list(range(year_from, year_to + 1))
-
     wb = Workbook()
 
     # Build ONLY the main BCTC sheet as requested for this version
-    _build_bctc_sheet(wb, mapped_data, years)
+    _build_bctc_sheet(wb, mapped_data, periods)
 
     # Save
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"{ticker}_BCTC_{year_from}_{year_to}.xlsx"
+    
+    p_from = periods[0] if periods else "Unknown"
+    p_to = periods[-1] if periods else "Unknown"
+    filename = f"{ticker}_BCTC_{p_from}_{p_to}.xlsx"
+    
     filepath = os.path.join(output_dir, filename)
     wb.save(filepath)
 

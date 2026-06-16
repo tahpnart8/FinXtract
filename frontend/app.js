@@ -8,7 +8,7 @@ const API_BASE = (window.location.hostname === 'localhost' || window.location.ho
     ? 'http://localhost:8002'
     : '';  // On Vercel: use same-origin proxy (vercel.json rewrites /api/* → Render)
 
-const MAX_DAILY_REQUESTS = 20;
+const MAX_DAILY_REQUESTS = 1000;
 
 // ── DOM Elements ──────────────────────────────────────────────────────────────
 
@@ -18,7 +18,9 @@ const el = {
     form: $('bctcForm'),
     tickerInput: $('tickerInput'),
     periodType: $('periodType'),
+    quarterFrom: $('quarterFrom'),
     yearFrom: $('yearFrom'),
+    quarterTo: $('quarterTo'),
     yearTo: $('yearTo'),
     formSection: $('formSection'),
     uploadSection: $('uploadSection'),
@@ -151,6 +153,18 @@ function showSection(id) {
 
 // ── Step 1: Config ────────────────────────────────────────────────────────────
 
+function toggleQuarterInputs() {
+    const isQuarter = el.periodType.value === 'quarter';
+    if (el.quarterFrom) el.quarterFrom.classList.toggle('hidden', !isQuarter);
+    if (el.quarterTo) el.quarterTo.classList.toggle('hidden', !isQuarter);
+}
+
+el.periodType.addEventListener('change', toggleQuarterInputs);
+// Ensure correct state on load if browser remembers form inputs
+document.addEventListener('DOMContentLoaded', () => {
+    toggleQuarterInputs();
+});
+
 el.form.addEventListener('submit', (e) => {
     e.preventDefault();
     config = {
@@ -158,11 +172,20 @@ el.form.addEventListener('submit', (e) => {
         period: el.periodType.value,
         from: parseInt(el.yearFrom.value),
         to: parseInt(el.yearTo.value),
+        qFrom: parseInt(el.quarterFrom.value),
+        qTo: parseInt(el.quarterTo.value)
     };
 
-    if (config.from > config.to) {
-        alert('Năm bắt đầu không được lớn hơn năm kết thúc.');
-        return;
+    if (config.period === 'year') {
+        if (config.from > config.to) {
+            alert('Năm bắt đầu không được lớn hơn năm kết thúc.');
+            return;
+        }
+    } else {
+        if (config.from > config.to || (config.from === config.to && config.qFrom > config.qTo)) {
+            alert('Kỳ bắt đầu không được lớn hơn kỳ kết thúc.');
+            return;
+        }
     }
 
     generateUploadInputs();
@@ -174,10 +197,21 @@ el.form.addEventListener('submit', (e) => {
 function generateUploadInputs() {
     el.uploadContainer.innerHTML = '';
     const periods = [];
-    for (let y = config.from; y <= config.to; y++) {
-        if (config.period === 'year') periods.push(String(y));
-        else for (let q = 1; q <= 4; q++) periods.push(`${y}-Q${q}`);
+    if (config.period === 'year') {
+        for (let y = config.from; y <= config.to; y++) {
+            periods.push(String(y));
+        }
+    } else {
+        for (let y = config.from; y <= config.to; y++) {
+            let startQ = (y === config.from) ? config.qFrom : 1;
+            let endQ = (y === config.to) ? config.qTo : 4;
+            for (let q = startQ; q <= endQ; q++) {
+                periods.push(`${y}-Q${q}`);
+            }
+        }
     }
+    
+    config.periodsList = periods;
 
     periods.forEach(label => {
         const row = document.createElement('div');
@@ -237,7 +271,7 @@ async function pollJobResult(jobId, periodLabel) {
             const job = await resp.json();
 
             if (job.status === 'done') {
-                return { year: job.year, data: job.data };
+                return { period: job.period, data: job.data };
             }
             if (job.status === 'error') {
                 throw new Error(job.detail || 'Lỗi không xác định từ AI');
@@ -297,7 +331,7 @@ el.processAiBtn.addEventListener('click', async () => {
             // 1. Submit PDF (fast, returns job_id in < 2 seconds)
             const fd = new FormData();
             fd.append('ticker', config.ticker);
-            fd.append('year', item.period);
+            fd.append('period', item.period);
             fd.append('file', item.file);
 
             const submitResp = await fetch(`${API_BASE}/api/jobs/extract-pdf`, {
@@ -337,8 +371,7 @@ el.processAiBtn.addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 ticker: config.ticker,
-                year_from: config.from,
-                year_to: config.to,
+                periods: config.periodsList,
                 yearly_data: allData,
             }),
         });
@@ -352,7 +385,7 @@ el.processAiBtn.addEventListener('click', async () => {
         const downloadUrl = `${API_BASE}${data.download_url}`;
         await renderPreview(downloadUrl);
 
-        el.resultSummary.textContent = `Đã trích xuất ${allData.length} năm cho ${config.ticker}`;
+        el.resultSummary.textContent = `Đã trích xuất ${allData.length} kỳ báo cáo cho ${config.ticker}`;
         showSection('resultSection');
         el.downloadBtn.onclick = () => window.open(downloadUrl, '_blank');
     } catch (err) {

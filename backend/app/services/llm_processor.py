@@ -2,6 +2,10 @@ import logging
 import json
 import time
 import google.generativeai as genai
+import base64
+import fitz
+import re
+from groq import Groq
 from typing import Optional, Dict, Any
 from app.config import settings
 
@@ -198,7 +202,7 @@ def _build_key_list_for_prompt() -> str:
     return "\n".join(lines)
 
 
-def process_pdf_with_gemini(pdf_path: str, ticker: str, year: int) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+def process_pdf_with_gemini(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     Sử dụng Google Gemini 2.5 Flash để đọc trực tiếp file PDF (kể cả dạng scan)
     và trích xuất TOÀN BỘ dữ liệu tài chính sang định dạng JSON.
@@ -215,7 +219,7 @@ def process_pdf_with_gemini(pdf_path: str, ticker: str, year: int) -> tuple[Opti
 
         # 2. Upload file PDF lên Gemini File API
         logger.info(f"Uploading PDF to Gemini: {pdf_path}")
-        uploaded_file = genai.upload_file(path=pdf_path, display_name=f"BCTC_{ticker}_{year}")
+        uploaded_file = genai.upload_file(path=pdf_path, display_name=f"BCTC_{ticker}_{period}")
         
         # Đợi file được xử lý
         while uploaded_file.state.name == "PROCESSING":
@@ -230,7 +234,7 @@ def process_pdf_with_gemini(pdf_path: str, ticker: str, year: int) -> tuple[Opti
 
         # 3. Tạo Prompt trích xuất TOÀN BỘ chỉ số
         prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
-Nhiệm vụ: Đọc file Báo cáo tài chính (BCTC) đính kèm của công ty {ticker} cho năm tài chính {year}.
+Nhiệm vụ: Đọc file Báo cáo tài chính (BCTC) đính kèm của công ty {ticker} cho kỳ {period}.
 
 Hãy trích xuất TOÀN BỘ các chỉ số tài chính từ 3 bảng chính:
 1. Kết quả hoạt động kinh doanh (Income Statement / Báo cáo KQKD)
@@ -252,7 +256,7 @@ DANH SÁCH CÁC KEY JSON VÀ TÊN TIẾNG VIỆT TƯƠNG ỨNG:
 Trả về JSON với đúng các key trên. Ví dụ:
 {{
   "ticker": "{ticker}",
-  "year": {year},
+  "period": "{period}",
   "revenue": 1500000000000,
   "net_revenue": 1480000000000,
   "cost_of_goods_sold": 1100000000000,
@@ -280,7 +284,7 @@ Trả về JSON với đúng các key trên. Ví dụ:
         if response and response.text:
             try:
                 result = json.loads(response.text)
-                logger.info(f"Successfully extracted {len(result)} indicators for {ticker}/{year}")
+                logger.info(f"Successfully extracted {len(result)} indicators for {ticker}/{period}")
                 return result, None
             except json.JSONDecodeError as e:
                 logger.error(f"JSON Parse Error: {e} - Raw text: {response.text}")
@@ -293,7 +297,137 @@ Trả về JSON với đúng các key trên. Ví dụ:
         return None, f"Lỗi kết nối Gemini API: {str(e)}"
 
 
-def process_markdown_with_llm(markdown_text: str, ticker: str, year: int) -> Optional[Dict[str, Any]]:
-    """Legacy fallback - deprecated."""
-    logger.warning("process_markdown_with_llm is deprecated. Use process_pdf_with_gemini instead.")
-    return None
+def _pdf_to_base64_images(pdf_path: str, max_pages: int = 10, dpi: int = 96) -> list[str]:
+    """Convert top N pages of PDF to base64 PNG images."""
+    try:
+        doc = fitz.open(pdf_path)
+        pages_to_render = min(len(doc), max_pages)
+        base64_images = []
+        
+        for i in range(pages_to_render):
+            page = doc.load_page(i)
+            # Render at 96 DPI for a balance of readability and low token cost
+            pix = page.get_pixmap(dpi=dpi)
+            img_bytes = pix.tobytes("png")
+            b64_str = base64.b64encode(img_bytes).decode("utf-8")
+            base64_images.append(b64_str)
+            
+        doc.close()
+        return base64_images
+    except Exception as e:
+        logger.error(f"Error rendering PDF to images: {e}")
+        return []
+
+def process_pdf_with_groq_vision(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """
+    Sử dụng Groq Vision API để đọc 10 trang đầu của file PDF và trích xuất dữ liệu.
+    """
+    if not settings.GROQ_API_KEY:
+        logger.error("GROQ_API_KEY is not set.")
+        return None, "GROQ_API_KEY chưa được cấu hình."
+
+    try:
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
+        
+        # 1. Render first 10 pages
+        logger.info(f"Rendering up to 10 pages of {pdf_path} for Groq...")
+        base64_images = _pdf_to_base64_images(pdf_path, max_pages=10)
+        
+        if not base64_images:
+            return None, "Không thể đọc nội dung PDF thành ảnh."
+            
+        key_list = _build_key_list_for_prompt()
+        base_prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
+Nhiệm vụ: Đọc các trang Báo cáo tài chính (BCTC) đính kèm của công ty {ticker} cho kỳ {period}.
+
+Hãy trích xuất TOÀN BỘ các chỉ số tài chính từ 3 bảng chính:
+1. Kết quả hoạt động kinh doanh (Income Statement / Báo cáo KQKD)
+2. Bảng cân đối kế toán (Balance Sheet / BCĐKT)
+3. Lưu chuyển tiền tệ (Cash Flow Statement / LCTT)
+
+QUY TẮC BẮT BUỘC:
+- Đơn vị: Giữ nguyên đơn vị gốc trong báo cáo (thường là VNĐ hoặc triệu VNĐ). KHÔNG nhân/chia thêm.
+- TẤT CẢ CÁC GIÁ TRỊ PHẢI LÀ CHUỖI (STRING) ĐƯỢC BỌC TRONG DẤU NGOẶC KÉP "". KHÔNG ĐƯỢC TRẢ VỀ KIỂU SỐ (NUMBER).
+- Nếu model muốn làm phép tính (ví dụ: A - B), CỨ VIẾT PHÉP TÍNH VÀO TRONG CHUỖI. Ví dụ: "100 - 20".
+- Nếu KHÔNG TÌM THẤY chỉ số, để giá trị là chuỗi "0".
+- Lấy cột "Năm nay" hoặc "Cuối kỳ" (KHÔNG lấy cột "Năm trước" hay "Đầu kỳ").
+- Bắt buộc trả về định dạng JSON thuần túy. KHÔNG CÓ markdown.
+
+DANH SÁCH KEY JSON:
+{key_list}
+
+Ví dụ format trả về:
+{{
+  "ticker": "{ticker}",
+  "period": "{period}",
+  "revenue": "1500000000000",
+  "net_revenue": "1500000000000 - 20000000"
+}}
+"""
+        
+        # 2. Batch images (5 per request)
+        batch_size = 5
+        all_results = {}
+        
+        for i in range(0, len(base64_images), batch_size):
+            batch = base64_images[i:i+batch_size]
+            logger.info(f"Sending batch {i//batch_size + 1} to Groq API ({len(batch)} images)...")
+            
+            content_list = [{"type": "text", "text": base_prompt}]
+            for b64 in batch:
+                content_list.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"}
+                })
+                
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": content_list}],
+                temperature=0.1,
+                max_tokens=4096,
+                response_format={"type": "json_object"}
+            )
+            
+            # Parse output
+            res_text = response.choices[0].message.content
+            try:
+                batch_data = json.loads(res_text)
+                # Parse and merge data
+                for k, v in batch_data.items():
+                    if k in ["ticker", "period"]:
+                        continue
+                        
+                    parsed_val = 0
+                    if isinstance(v, str):
+                        # Clean string: only keep digits, minus, plus, dot
+                        cleaned = re.sub(r'[^\d\.\-\+]', '', v)
+                        try:
+                            # Evaluate math expressions like "100-20" safely
+                            parsed_val = eval(cleaned) if cleaned else 0
+                        except Exception:
+                            parsed_val = 0
+                    elif isinstance(v, (int, float)):
+                        parsed_val = v
+                        
+                    if k not in all_results or all_results[k] in [0, "", None]:
+                        all_results[k] = parsed_val
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON Parse Error in batch {i}: {e} - Raw: {res_text}")
+                
+            # Thêm thời gian nghỉ giữa các batch để tránh bị chạm giới hạn 30k Tokens Per Minute (TPM) của Groq
+            if i + batch_size < len(base64_images):
+                logger.info("Sleeping for 5 seconds to avoid Groq Rate Limit (TPM)...")
+                import time
+                time.sleep(5)
+                
+        # Final formatting
+        all_results["ticker"] = ticker
+        all_results["period"] = period
+        
+        logger.info(f"Successfully extracted data using Groq Vision for {ticker}/{period}")
+        return all_results, None
+
+    except Exception as e:
+        logger.error(f"Error processing with Groq: {e}")
+        return None, f"Lỗi kết nối Groq API: {str(e)}"

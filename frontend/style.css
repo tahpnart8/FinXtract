@@ -404,6 +404,23 @@ body {
     box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+.period-inputs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.period-inputs input {
+    flex: 1;
+}
+
+.quarter-select {
+    width: 70px;
+    padding: 0 8px !important;
+    background-position: right 6px center !important;
+    padding-right: 24px !important;
+}
+
 .form-group select {
     cursor: pointer;
     appearance: none;

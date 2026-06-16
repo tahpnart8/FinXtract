@@ -12,16 +12,15 @@ from pydantic import BaseModel, Field, field_validator
 # ── Request Models ─────────────────────────────────────────────────────────────
 
 class YearlyDataInput(BaseModel):
-    """Extracted data for a specific year."""
-    year: int
+    """Extracted data for a specific period."""
+    period: str
     data: dict
 
 class GenerateExcelRequest(BaseModel):
     """Request body for generating Excel from AI extracted data."""
     ticker: str = Field(..., min_length=1, max_length=10)
-    year_from: int
-    year_to: int
-    yearly_data: list[YearlyDataInput] = Field(..., description="List of extracted data per year")
+    periods: list[str] = Field(..., description="List of requested periods in order")
+    yearly_data: list[YearlyDataInput] = Field(..., description="List of extracted data per period")
 
     @field_validator("ticker", mode="before")
     @classmethod
@@ -33,7 +32,7 @@ class GenerateExcelRequest(BaseModel):
 class ExtractPdfResponse(BaseModel):
     """Response after extracting a single PDF."""
     ticker: str
-    year: int
+    period: str
     data: dict
     message: str = "Success"
 
