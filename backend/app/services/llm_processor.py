@@ -318,43 +318,66 @@ def _pdf_to_base64_images(pdf_path: str, max_pages: int = 10, dpi: int = 96) -> 
         logger.error(f"Error rendering PDF to images: {e}")
         return []
 
-def process_pdf_with_groq_vision(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """
-    Sử dụng Groq Vision API để đọc 10 trang đầu của file PDF và trích xuất dữ liệu.
-    """
-    if not settings.GROQ_API_KEY:
-        logger.error("GROQ_API_KEY is not set.")
-        return None, "GROQ_API_KEY chưa được cấu hình."
+def _extract_markdown_from_images(client: Groq, base64_images: list[str]) -> str:
+    """Step 1: Extract markdown tables from images using Vision model."""
+    model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
+    batch_size = 5
+    full_markdown = ""
+    
+    prompt = """Bạn là một chuyên gia đánh máy (OCR). Hãy đọc tất cả các bảng biểu tài chính trong ảnh và chuyển nó thành định dạng Markdown Table. 
+Giữ nguyên mọi con số, dấu phẩy, dấu chấm, và tên cột. KHÔNG BÌNH LUẬN GÌ THÊM, CHỈ XUẤT RA MARKDOWN TABLE."""
 
-    try:
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
+    for i in range(0, len(base64_images), batch_size):
+        batch = base64_images[i:i+batch_size]
+        logger.info(f"[Step 1] Sending batch {i//batch_size + 1} to Llama-4-Scout (Vision) to extract text...")
         
-        # 1. Render first 10 pages
-        logger.info(f"Rendering up to 10 pages of {pdf_path} for Groq...")
-        base64_images = _pdf_to_base64_images(pdf_path, max_pages=10)
-        
-        if not base64_images:
-            return None, "Không thể đọc nội dung PDF thành ảnh."
+        content_list = [{"type": "text", "text": prompt}]
+        for b64 in batch:
+            content_list.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"}
+            })
             
-        key_list = _build_key_list_for_prompt()
-        base_prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
-Nhiệm vụ: Đọc các trang Báo cáo tài chính (BCTC) đính kèm của công ty {ticker} cho kỳ {period}.
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": content_list}],
+                temperature=0.0,
+                max_tokens=4096
+            )
+            full_markdown += response.choices[0].message.content + "\n\n"
+        except Exception as e:
+            logger.error(f"Vision OCR Error in batch {i}: {e}")
+            if "Rate limit reached" in str(e) or "429" in str(e):
+                raise Exception(f"Lỗi giới hạn API Groq (Hết Token): {str(e)}")
+            raise e
+            
+        if i + batch_size < len(base64_images):
+            import time
+            time.sleep(5)
+            
+    return full_markdown
 
-Hãy trích xuất TOÀN BỘ các chỉ số tài chính từ 3 bảng chính:
-1. Kết quả hoạt động kinh doanh (Income Statement / Báo cáo KQKD)
-2. Bảng cân đối kế toán (Balance Sheet / BCĐKT)
-3. Lưu chuyển tiền tệ (Cash Flow Statement / LCTT)
+def _extract_json_from_text(client: Groq, markdown_text: str, ticker: str, period: str) -> dict:
+    """Step 2: Extract JSON data from markdown text using Text model."""
+    model_name = "llama-3.3-70b-versatile"
+    key_list = _build_key_list_for_prompt()
+    
+    prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
+Nhiệm vụ: Đọc đoạn văn bản/bảng biểu Markdown dưới đây (được trích xuất từ BCTC của {ticker} kỳ {period}) và điền dữ liệu vào cấu trúc JSON.
+
+ĐOẠN MARKDOWN TEXT:
+{markdown_text}
 
 QUY TẮC BẮT BUỘC:
-- Đơn vị: Giữ nguyên đơn vị gốc trong báo cáo (thường là VNĐ hoặc triệu VNĐ). KHÔNG nhân/chia thêm.
+- Đơn vị: Giữ nguyên đơn vị gốc trong bảng. KHÔNG nhân/chia thêm.
 - TẤT CẢ CÁC GIÁ TRỊ PHẢI LÀ CHUỖI (STRING) ĐƯỢC BỌC TRONG DẤU NGOẶC KÉP "". KHÔNG ĐƯỢC TRẢ VỀ KIỂU SỐ (NUMBER).
 - Nếu model muốn làm phép tính (ví dụ: A - B), CỨ VIẾT PHÉP TÍNH VÀO TRONG CHUỖI. Ví dụ: "100 - 20".
 - Nếu KHÔNG TÌM THẤY chỉ số, để giá trị là chuỗi "0".
 - Lấy cột "Năm nay" hoặc "Cuối kỳ" (KHÔNG lấy cột "Năm trước" hay "Đầu kỳ").
 - Bắt buộc trả về định dạng JSON thuần túy. KHÔNG CÓ markdown.
 
-DANH SÁCH KEY JSON:
+DANH SÁCH KEY JSON BẮT BUỘC (Phải xuất đủ tất cả các keys này):
 {key_list}
 
 Ví dụ format trả về:
@@ -365,69 +388,74 @@ Ví dụ format trả về:
   "net_revenue": "1500000000000 - 20000000"
 }}
 """
+    try:
+        logger.info(f"[Step 2] Sending text to Llama-3.3-70b-Versatile (Text) to extract JSON...")
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+            max_tokens=4096,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"Text to JSON Error: {e}")
+        return {}
+
+def process_pdf_with_groq_vision(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """
+    Sử dụng kiến trúc 2-Stage (Divide & Conquer) trên Groq:
+    1. OCR ảnh thành Markdown bằng Vision Model
+    2. Parse Markdown thành JSON bằng Text Model
+    """
+    if not settings.GROQ_API_KEY:
+        logger.error("GROQ_API_KEY is not set.")
+        return None, "GROQ_API_KEY chưa được cấu hình."
+
+    try:
+        client = Groq(api_key=settings.GROQ_API_KEY)
         
-        # 2. Batch images (5 per request)
-        batch_size = 5
+        # 0. Render first 10 pages
+        logger.info(f"Rendering up to 10 pages of {pdf_path} for Groq...")
+        base64_images = _pdf_to_base64_images(pdf_path, max_pages=10)
+        
+        if not base64_images:
+            return None, "Không thể đọc nội dung PDF thành ảnh."
+            
+        # 1. Vision OCR
+        markdown_text = _extract_markdown_from_images(client, base64_images)
+        if not markdown_text.strip():
+            return None, "Không thể nhận diện ký tự từ ảnh (Vision Model thất bại)."
+            
+        # 2. Text to JSON
+        raw_json_data = _extract_json_from_text(client, markdown_text, ticker, period)
+        if not raw_json_data:
+            return None, "Không thể parse JSON từ Text Model."
+            
+        # 3. Clean and Evaluate Maths
         all_results = {}
-        
-        for i in range(0, len(base64_images), batch_size):
-            batch = base64_images[i:i+batch_size]
-            logger.info(f"Sending batch {i//batch_size + 1} to Groq API ({len(batch)} images)...")
-            
-            content_list = [{"type": "text", "text": base_prompt}]
-            for b64 in batch:
-                content_list.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{b64}"}
-                })
+        for k, v in raw_json_data.items():
+            if k in ["ticker", "period"]:
+                continue
                 
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": content_list}],
-                temperature=0.1,
-                max_tokens=4096,
-                response_format={"type": "json_object"}
-            )
-            
-            # Parse output
-            res_text = response.choices[0].message.content
-            try:
-                batch_data = json.loads(res_text)
-                # Parse and merge data
-                for k, v in batch_data.items():
-                    if k in ["ticker", "period"]:
-                        continue
-                        
+            parsed_val = 0
+            if isinstance(v, str):
+                cleaned = re.sub(r'[^\d\.\-\+]', '', v)
+                try:
+                    parsed_val = eval(cleaned) if cleaned else 0
+                except Exception:
                     parsed_val = 0
-                    if isinstance(v, str):
-                        # Clean string: only keep digits, minus, plus, dot
-                        cleaned = re.sub(r'[^\d\.\-\+]', '', v)
-                        try:
-                            # Evaluate math expressions like "100-20" safely
-                            parsed_val = eval(cleaned) if cleaned else 0
-                        except Exception:
-                            parsed_val = 0
-                    elif isinstance(v, (int, float)):
-                        parsed_val = v
-                        
-                    if k not in all_results or all_results[k] in [0, "", None]:
-                        all_results[k] = parsed_val
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON Parse Error in batch {i}: {e} - Raw: {res_text}")
+            elif isinstance(v, (int, float)):
+                parsed_val = v
                 
-            # Thêm thời gian nghỉ giữa các batch để tránh bị chạm giới hạn 30k Tokens Per Minute (TPM) của Groq
-            if i + batch_size < len(base64_images):
-                logger.info("Sleeping for 5 seconds to avoid Groq Rate Limit (TPM)...")
-                import time
-                time.sleep(5)
+            all_results[k] = parsed_val
                 
-        # Final formatting
         all_results["ticker"] = ticker
         all_results["period"] = period
         
-        logger.info(f"Successfully extracted data using Groq Vision for {ticker}/{period}")
+        logger.info(f"Successfully extracted data using 2-Stage Groq Pipeline for {ticker}/{period}")
         return all_results, None
 
     except Exception as e:
-        logger.error(f"Error processing with Groq: {e}")
+        logger.error(f"Error processing with Groq Pipeline: {e}")
         return None, f"Lỗi kết nối Groq API: {str(e)}"

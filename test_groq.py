@@ -1,64 +1,49 @@
 import os
-import sys
+from groq import Groq
+from dotenv import load_dotenv
 
-# Yêu cầu cài đặt thư viện trước khi chạy: pip install groq
+# Tải biến môi trường
+load_dotenv(dotenv_path="backend/.env")
+
+api_key = os.getenv("GROQ_API_KEY")
+
+if not api_key:
+    print("❌ LỖI: Không tìm thấy GROQ_API_KEY trong file .env")
+    exit(1)
+
+print("🔑 Đã nạp API Key thành công.")
+print("Đang khởi tạo Groq Client...")
+
 try:
-    from groq import Groq
-except ImportError:
-    print("Thư viện 'groq' chưa được cài đặt. Vui lòng chạy: pip install groq")
-    sys.exit(1)
-
-def test_groq_vision(api_key):
-    # Khởi tạo client với API key
     client = Groq(api_key=api_key)
     
-    # Model bạn muốn test (thay đổi nếu cần)
-    MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct" # Nếu Groq đã ra mắt bản llama 4 scout, bạn có thể thay tên vào đây
+    print("\n--------------------------------------------------")
+    print("🧪 BÀI TEST 1: GỬI THỬ ẢNH ĐẾN LLAMA-4-SCOUT (Vision Mode)")
+    print("--------------------------------------------------")
     
-    # URL của một hình ảnh mẫu (Biểu đồ hoặc hóa đơn bất kỳ trên mạng)
-    IMAGE_URL = "https://cellphones.com.vn/sforum/wp-content/uploads/2023/05/chuyen-hinh-anh-thanh-van-ban-3.jpg"
-
-    print(f"Đang kết nối đến Groq API...")
-    print(f"Sử dụng model: {MODEL_NAME}")
-    print(f"Gửi thử một hình ảnh mẫu...")
-
-    try:
-        completion = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Mô tả ngắn gọn hình ảnh này bằng tiếng Việt."},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": IMAGE_URL,
-                            },
-                        },
-                    ],
-                }
-            ],
-            temperature=0.1,
-            max_tokens=500,
-        )
-
-        print("\n✅ KẾT QUẢ TỪ GROQ VISION:")
-        print("-" * 50)
-        print(completion.choices[0].message.content)
-        print("-" * 50)
-        print("Tất cả hoạt động hoàn hảo! Groq Vision đã sẵn sàng.")
-
-    except Exception as e:
-        print("\n❌ CÓ LỖI XẢY RA:")
-        print(e)
-        print("\nNếu lỗi liên quan đến model_not_found, có thể model 'llama-4-scout' chưa public hoặc tên chưa chính xác. Bạn hãy đăng nhập Groq Console để xem tên model chính xác.")
-
-if __name__ == "__main__":
-    print("=== BÀI TEST GROQ VISION API ===")
-    key = input("Nhập Groq API Key của bạn vào đây (bắt đầu bằng gsk_...): ").strip()
+    # Tạo ảnh giả lập dạng Base64 (1px PNG trắng)
+    dummy_base64_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     
-    if not key:
-        print("Bạn chưa nhập API Key!")
-    else:
-        test_groq_vision(key)
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Trích xuất văn bản trong ảnh này"},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{dummy_base64_image}"}}
+                ]
+            }
+        ]
+    )
+    print("✅ THÀNH CÔNG! Model Vision hoạt động bình thường:")
+    print(response.choices[0].message.content)
+
+except Exception as e:
+    print("\n❌ PHÁT HIỆN LỖI API:")
+    print(e)
+    
+    if "Rate limit reached" in str(e) or "429" in str(e):
+        print("\n⚠️ CHÚ Ý: Đây là lỗi Rate Limit (Hết lượt dùng trong ngày / TPD). Bạn cần đổi API Key mới hoặc đợi ngày mai.")
+    elif "model_decommissioned" in str(e) or "400" in str(e):
+        print("\n⚠️ CHÚ Ý: Model này đã bị Groq khai tử hoặc không hỗ trợ định dạng này.")

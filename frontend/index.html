@@ -90,6 +90,13 @@
                     </div>
                 </div>
                 <form id="bctcForm" class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label><i data-lucide="cpu" class="label-icon"></i> Chọn AI Engine</label>
+                        <select id="aiModelSelect" class="styled-select">
+                            <option value="groq">Llama 4 Scout (Mặc định - Groq)</option>
+                            <option value="gemini">Gemini 2.5 Flash</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label><i data-lucide="hash" class="label-icon"></i> Mã cổ phiếu</label>
                         <input type="text" id="tickerInput" placeholder="VD: DMC, VNM, FPT" required autocomplete="off">

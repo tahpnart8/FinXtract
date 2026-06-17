@@ -1,0 +1,98 @@
+Common years: ['2022', '2023', '2024', '2025']
+
+--- BÁO CÁO ACCURACY ---
+Tổng số ô dữ liệu so sánh (khác 0): 178
+Gemini Accuracy: 178/178 (100.00%)
+Llama Accuracy:  11/178 (6.18%)
+
+--- TOP 30 LỖI SAI CỦA LLAMA (Theo chênh lệch lớn nhất) ---
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 187,782,586,563,801 (Diff: 187,782,586,563,801)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 187,782,586,563,801 (Diff: 187,782,586,563,801)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 106,923,132,534,330 (Diff: 106,923,132,534,330)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 105,066,147,390,758 (Diff: 105,066,147,390,758)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 84,946,167,324,422 (Diff: 84,946,167,324,422)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 84,946,167,324,422 (Diff: 84,946,167,324,422)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 71,998,370,737,871 (Diff: 71,998,370,737,871)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 71,787,251,586,301 (Diff: 71,787,251,586,301)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 71,513,492,904,733 (Diff: 71,513,492,904,733)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 58,147,857,000,000 (Diff: 58,147,857,000,000)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 54,981,883,180,636 (Diff: 54,981,883,180,636)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 34,504,487,406,261 (Diff: 34,504,487,406,261)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 33,796,166,741,483 (Diff: 33,796,166,741,483)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 26,098,929,377,501 (Diff: 26,098,929,377,501)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 22,177,303,502,481 (Diff: 22,177,303,502,481)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 22,177,303,502,481 (Diff: 22,177,303,502,481)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 13,432,674,419,689 (Diff: 13,432,674,419,689)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 10,397,161,220,402 (Diff: 10,397,161,220,402)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 10,044,911,929,281 (Diff: 10,044,911,929,281)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 9,779,299,596,501 (Diff: 9,779,299,596,501)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 8,480,406,000,000 (Diff: 8,480,406,000,000)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 8,137,596,161,026 (Diff: 8,137,596,161,026)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 5,995,893,831,991 (Diff: 5,995,893,831,991)
+Row: nan                                                | Year: 2023
+  -> Truth: 0
+  -> Llama: 5,938,920,277,320 (Diff: 5,938,920,277,320)

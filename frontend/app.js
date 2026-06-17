@@ -18,6 +18,7 @@ const el = {
     form: $('bctcForm'),
     tickerInput: $('tickerInput'),
     periodType: $('periodType'),
+    aiModelSelect: $('aiModelSelect'),
     quarterFrom: $('quarterFrom'),
     yearFrom: $('yearFrom'),
     quarterTo: $('quarterTo'),
@@ -170,6 +171,7 @@ el.form.addEventListener('submit', (e) => {
     config = {
         ticker: el.tickerInput.value.trim().toUpperCase(),
         period: el.periodType.value,
+        aiModel: el.aiModelSelect ? el.aiModelSelect.value : 'groq',
         from: parseInt(el.yearFrom.value),
         to: parseInt(el.yearTo.value),
         qFrom: parseInt(el.quarterFrom.value),
@@ -332,6 +334,7 @@ el.processAiBtn.addEventListener('click', async () => {
             const fd = new FormData();
             fd.append('ticker', config.ticker);
             fd.append('period', item.period);
+            fd.append('ai_model', config.aiModel);
             fd.append('file', item.file);
 
             const submitResp = await fetch(`${API_BASE}/api/jobs/extract-pdf`, {

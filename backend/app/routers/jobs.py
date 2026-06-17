@@ -26,10 +26,10 @@ router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 jobs_store: dict[str, dict] = {}
 
 
-def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str):
+def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str, ai_model: str = "groq"):
     """Background worker: runs extraction and stores result."""
     try:
-        if settings.USE_GROQ_VISION:
+        if ai_model == "groq":
             logger.info(f"Using Groq Vision to process {ticker}/{period}")
             json_data, error_msg = process_pdf_with_groq_vision(pdf_path, ticker, period)
         else:
@@ -70,6 +70,7 @@ def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str):
 async def extract_pdf(
     ticker: str = Form(...),
     period: str = Form(...),
+    ai_model: str = Form("groq"),
     file: UploadFile = File(...)
 ):
     """
@@ -90,7 +91,7 @@ async def extract_pdf(
     # Start background thread (does NOT block the response)
     thread = threading.Thread(
         target=_run_extraction,
-        args=(job_id, tmp_path, ticker, period),
+        args=(job_id, tmp_path, ticker, period, ai_model),
         daemon=True,
     )
     thread.start()
