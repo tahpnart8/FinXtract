@@ -963,7 +963,14 @@ body {
 
     .top-bar-actions {
         width: 100%;
-        justify-content: flex-end;
+        justify-content: space-between; /* Dàn đều các actions trên mobile */
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .api-usage-badge, .status-badge {
+        flex: 1;
+        justify-content: center;
     }
 
     .form-grid {
@@ -971,20 +978,26 @@ body {
     }
 
     .form-actions.two-col {
-        grid-template-columns: 1fr;
+        flex-direction: column; /* Xếp dọc các nút hành động */
+        width: 100%;
+    }
+
+    .form-actions.two-col .btn {
+        width: 100%; /* Nút full màn hình trên mobile */
     }
 
     .card {
-        padding: 20px;
+        padding: 20px 16px;
     }
 
     .steps-nav {
         flex-wrap: wrap;
         gap: 4px;
+        justify-content: center;
     }
 
     .step-divider {
-        width: 20px;
+        width: 16px;
     }
 
     .step-item span {
@@ -992,8 +1005,7 @@ body {
     }
 
     .upload-row {
-        flex-direction: column;
-        align-items: flex-start;
+        padding: 16px;
     }
 }
 
