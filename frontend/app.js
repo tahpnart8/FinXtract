@@ -8,7 +8,7 @@ const API_BASE = (window.location.hostname === 'localhost' || window.location.ho
     ? 'http://localhost:8002'
     : '';  // On Vercel: use same-origin proxy (vercel.json rewrites /api/* → Render)
 
-const MAX_DAILY_REQUESTS = 1000;
+const MAX_DAILY_REQUESTS = 50;
 
 // ── DOM Elements ──────────────────────────────────────────────────────────────
 
@@ -41,6 +41,7 @@ const el = {
     apiUsageText: $('apiUsageText'),
     stepsNav: $('stepsNav'),
     resultSummary: $('resultSummary'),
+
 };
 
 let config = {};
@@ -50,7 +51,7 @@ let config = {};
 document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     checkHealth();
-    updateApiUsageUI();
+    fetchUsageCount();
 
     // Init tsParticles
     tsParticles.load("tsparticles", {
@@ -95,51 +96,99 @@ async function checkHealth() {
     }
 }
 
-// ── API Usage Counter ─────────────────────────────────────────────────────────
+// ── API Usage Counter (Global Sync) ───────────────────────────────────────────
 
-function getTodayKey() {
-    const d = new Date();
-    return `bctc_usage_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+let currentUsage = 0;
 
-function getUsageCount() {
-    return parseInt(localStorage.getItem(getTodayKey()) || '0', 10);
-}
-
-function incrementUsage(count = 1) {
-    const key = getTodayKey();
-    const current = parseInt(localStorage.getItem(key) || '0', 10);
-    localStorage.setItem(key, current + count);
-    updateApiUsageUI();
+async function fetchUsageCount() {
+    try {
+        const resp = await fetch(`${API_BASE}/api/jobs/quota/usage`);
+        if (resp.ok) {
+            const data = await resp.json();
+            currentUsage = data.used;
+            updateApiUsageUI();
+        }
+    } catch (e) {
+        console.error("Failed to fetch quota", e);
+    }
 }
 
 function updateApiUsageUI() {
-    const used = getUsageCount();
-    el.apiUsageText.textContent = `${used} / ${MAX_DAILY_REQUESTS}`;
+    el.apiUsageText.textContent = `${currentUsage} / ${MAX_DAILY_REQUESTS}`;
     el.apiUsageBadge.classList.remove('warning', 'danger');
-    if (used >= MAX_DAILY_REQUESTS) {
+    if (currentUsage >= MAX_DAILY_REQUESTS) {
         el.apiUsageBadge.classList.add('danger');
-    } else if (used >= 200) {
+    } else if (currentUsage >= 40) {
         el.apiUsageBadge.classList.add('warning');
     }
 }
 
-function canMakeRequests(count) {
-    const used = getUsageCount();
-    if (used + count > MAX_DAILY_REQUESTS) {
-        const remaining = MAX_DAILY_REQUESTS - used;
-        alert(`⚠️ Giới hạn API: Bạn chỉ còn ${remaining} lượt trích xuất hôm nay.\n\nBạn đang yêu cầu ${count} file nhưng chỉ còn ${remaining} lượt. Vui lòng giảm số file hoặc đợi sang ngày mai.`);
+async function canMakeRequests(count) {
+    await fetchUsageCount(); // Luôn lấy số liệu mới nhất trước khi trích xuất
+    if (currentUsage + count > MAX_DAILY_REQUESTS) {
+        const remaining = Math.max(0, MAX_DAILY_REQUESTS - currentUsage);
+        alert(`⚠️ Giới hạn hệ thống: Chỉ còn ${remaining} lượt trích xuất hôm nay.\n\nBạn đang yêu cầu ${count} file nhưng hệ thống chỉ còn ${remaining} lượt. Vui lòng giảm số file hoặc đợi sang ngày mai.`);
         return false;
     }
     return true;
 }
 
-// ── Navigation & Steps ────────────────────────────────────────────────────────
+// ── Navigation & Steps & State ────────────────────────────────────────────────
 
-function showSection(id) {
+function saveState(sectionId, extraData = {}) {
+    const state = {
+        sectionId,
+        config,
+        ...extraData
+    };
+    sessionStorage.setItem('finxtract_state', JSON.stringify(state));
+}
+
+function restoreState() {
+    try {
+        const saved = sessionStorage.getItem('finxtract_state');
+        if (saved) {
+            const state = JSON.parse(saved);
+            config = state.config || {};
+            if (state.sectionId === 'uploadSection') {
+                generateUploadInputs();
+            } else if (state.sectionId === 'resultSection' && state.htmlPreview) {
+                $('previewContainer').innerHTML = state.htmlPreview;
+                el.downloadBtn.onclick = () => window.open(state.downloadUrl, '_blank');
+                el.resultSummary.textContent = state.resultSummary;
+            }
+            showSection(state.sectionId, false);
+        }
+    } catch (e) {
+        console.error("Failed to restore state", e);
+    }
+}
+
+function showSection(id, shouldSave = true) {
     [el.formSection, el.uploadSection, el.progressSection, el.resultSection]
         .forEach(s => s.classList.add('hidden'));
     $(id).classList.remove('hidden');
+
+    if (id === 'resultSection') {
+        // Show modal and prevent body scrolling
+        $(id).classList.add('fullscreen');
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = '';
+    }
+
+    if (shouldSave) {
+        let extra = {};
+        if (id === 'resultSection') {
+            extra.htmlPreview = $('previewContainer').innerHTML;
+            extra.resultSummary = el.resultSummary.textContent;
+            // Hack to get downloadUrl from onclick
+            const clickStr = el.downloadBtn.onclick ? el.downloadBtn.onclick.toString() : '';
+            const match = clickStr.match(/window\.open\((['"`])(.*?)\1/);
+            if (match) extra.downloadUrl = match[2];
+        }
+        saveState(id, extra);
+    }
 
     // Update step indicator
     const stepMap = { 'formSection': 1, 'uploadSection': 2, 'progressSection': 3, 'resultSection': 4 };
@@ -171,7 +220,7 @@ el.form.addEventListener('submit', (e) => {
     config = {
         ticker: el.tickerInput.value.trim().toUpperCase(),
         period: el.periodType.value,
-        aiModel: el.aiModelSelect ? el.aiModelSelect.value : 'groq',
+        aiModel: el.aiModelSelect ? el.aiModelSelect.value : 'gemini-3.1-flash-lite',
         from: parseInt(el.yearFrom.value),
         to: parseInt(el.yearTo.value),
         qFrom: parseInt(el.quarterFrom.value),
@@ -212,7 +261,7 @@ function generateUploadInputs() {
             }
         }
     }
-    
+
     config.periodsList = periods;
 
     periods.forEach(label => {
@@ -221,10 +270,39 @@ function generateUploadInputs() {
         row.innerHTML = `
             <div class="year-label">
                 <i data-lucide="file-text"></i>
-                ${label}
+                Kỳ: ${label}
             </div>
+            <div class="file-name">Kéo thả file PDF vào đây hoặc Click</div>
             <input type="file" accept="application/pdf" class="pdf-input" data-period="${label}">
         `;
+
+        const fileInput = row.querySelector('.pdf-input');
+        const nameDisplay = row.querySelector('.file-name');
+
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            row.classList.add('dragover');
+        });
+        row.addEventListener('dragleave', () => {
+            row.classList.remove('dragover');
+        });
+        row.addEventListener('drop', (e) => {
+            row.classList.remove('dragover');
+            // Browser handles the file drop to <input type="file"> natively if dropped exactly on the invisible input.
+            // But just in case, we visually update it via the change event.
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                row.classList.add('has-file');
+                nameDisplay.innerHTML = `<i data-lucide="check-circle" style="width:14px;height:14px"></i> ${e.target.files[0].name}`;
+                lucide.createIcons();
+            } else {
+                row.classList.remove('has-file');
+                nameDisplay.textContent = 'Kéo thả file PDF vào đây hoặc Click';
+            }
+        });
+
         el.uploadContainer.appendChild(row);
     });
 
@@ -261,13 +339,13 @@ async function pollJobResult(jobId, periodLabel) {
         await new Promise(r => setTimeout(r, pollInterval));
 
         const elapsed = Math.round((Date.now() - startTime) / 1000);
-        el.progressMessage.textContent = `Gemini AI đang đọc BCTC ${periodLabel}… (${elapsed}s)`;
+        el.progressMessage.textContent = `Hệ thống đang trích xuất báo cáo tài chính ${ periodLabel }…(${ elapsed }s)`;
 
         try {
             const resp = await fetch(`${API_BASE}/api/jobs/status/${jobId}`);
             if (!resp.ok) {
                 const errData = await resp.json().catch(() => ({}));
-                throw new Error(errData.detail || `Server trả về lỗi ${resp.status}`);
+                throw new Error(errData.detail || `Server trả về lỗi ${ resp.status } `);
             }
 
             const job = await resp.json();
@@ -288,7 +366,7 @@ async function pollJobResult(jobId, periodLabel) {
         }
     }
 
-    throw new Error(`Quá thời gian chờ (5 phút). Gemini API phản hồi quá chậm cho file ${periodLabel}.`);
+    throw new Error(`Quá thời gian chờ(5 phút).Gemini API phản hồi quá chậm cho file ${ periodLabel }.`);
 }
 
 el.processAiBtn.addEventListener('click', async () => {
@@ -325,9 +403,9 @@ el.processAiBtn.addEventListener('click', async () => {
     for (let i = 0; i < total; i++) {
         const item = files[i];
         const basePct = Math.round((i / total) * 90) + 5;
-        el.progressFill.style.width = `${basePct}%`;
-        el.progressText.textContent = `${basePct}%`;
-        el.progressMessage.textContent = `Đang upload PDF năm ${item.period}… (${i + 1}/${total})`;
+        el.progressFill.style.width = `${ basePct }% `;
+        el.progressText.textContent = `${ basePct }% `;
+        el.progressMessage.textContent = `Đang upload PDF năm ${ item.period }… (${ i + 1 }/${total})`;
 
         try {
             // 1. Submit PDF (fast, returns job_id in < 2 seconds)
@@ -345,7 +423,7 @@ el.processAiBtn.addEventListener('click', async () => {
             if (!submitResp.ok) {
                 const errText = await submitResp.text();
                 let detail = 'Lỗi upload file';
-                try { detail = JSON.parse(errText).detail; } catch {}
+                try { detail = JSON.parse(errText).detail; } catch { }
                 throw new Error(detail);
             }
 
@@ -355,9 +433,9 @@ el.processAiBtn.addEventListener('click', async () => {
             const result = await pollJobResult(job_id, item.period);
             allData.push(result);
 
-            incrementUsage(1);
+            await fetchUsageCount();
         } catch (err) {
-            alert(`Lỗi khi xử lý năm ${item.period}: ${err.message}`);
+            alert(`Lỗi khi xử lý năm ${ item.period }: ${ err.message } `);
             showSection('uploadSection');
             return;
         }
@@ -388,7 +466,7 @@ el.processAiBtn.addEventListener('click', async () => {
         const downloadUrl = `${API_BASE}${data.download_url}`;
         await renderPreview(downloadUrl);
 
-        el.resultSummary.textContent = `Đã trích xuất ${allData.length} kỳ báo cáo cho ${config.ticker}`;
+        el.resultSummary.textContent = `Đã trích xuất ${ allData.length } kỳ báo cáo cho ${ config.ticker } `;
         showSection('resultSection');
         el.downloadBtn.onclick = () => window.open(downloadUrl, '_blank');
     } catch (err) {
@@ -422,7 +500,25 @@ async function renderPreview(fileUrl) {
     }
 }
 
+// ── Event Listeners ───────────────────────────────────────────────────────────
+
+if ($('closeFullscreenBtn')) {
+    $('closeFullscreenBtn').addEventListener('click', () => {
+        el.resultSection.classList.remove('fullscreen');
+        saveState('resultSection', {
+            htmlPreview: $('previewContainer').innerHTML,
+            resultSummary: el.resultSummary.textContent
+        });
+    });
+}
+
 el.newQueryBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('finxtract_state');
     showSection('formSection');
     el.tickerInput.value = '';
+});
+
+// Restore state on load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(restoreState, 100);
 });

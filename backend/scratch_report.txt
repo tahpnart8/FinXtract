@@ -1,98 +1,97 @@
 Common years: ['2022', '2023', '2024', '2025']
 
---- BÁO CÁO ACCURACY ---
-Tổng số ô dữ liệu so sánh (khác 0): 178
-Gemini Accuracy: 178/178 (100.00%)
-Llama Accuracy:  11/178 (6.18%)
+--- BÁO CÁO ACCURACY (So Sánh Trực Tiếp Với 2.5 Flash) ---
+Tổng số ô dữ liệu so sánh (khác 0): 490
+Gemini 3.1 Flash Lite Accuracy:  403/490 (82.24%)
 
---- TOP 30 LỖI SAI CỦA LLAMA (Theo chênh lệch lớn nhất) ---
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 187,782,586,563,801 (Diff: 187,782,586,563,801)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 187,782,586,563,801 (Diff: 187,782,586,563,801)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 106,923,132,534,330 (Diff: 106,923,132,534,330)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 105,066,147,390,758 (Diff: 105,066,147,390,758)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 102,836,419,239,379 (Diff: 102,836,419,239,379)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 84,946,167,324,422 (Diff: 84,946,167,324,422)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 84,946,167,324,422 (Diff: 84,946,167,324,422)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 71,998,370,737,871 (Diff: 71,998,370,737,871)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 71,787,251,586,301 (Diff: 71,787,251,586,301)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 71,513,492,904,733 (Diff: 71,513,492,904,733)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 58,147,857,000,000 (Diff: 58,147,857,000,000)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 54,981,883,180,636 (Diff: 54,981,883,180,636)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 34,504,487,406,261 (Diff: 34,504,487,406,261)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 33,796,166,741,483 (Diff: 33,796,166,741,483)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 26,098,929,377,501 (Diff: 26,098,929,377,501)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 22,177,303,502,481 (Diff: 22,177,303,502,481)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 22,177,303,502,481 (Diff: 22,177,303,502,481)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 13,432,674,419,689 (Diff: 13,432,674,419,689)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 12,251,001,160,884 (Diff: 12,251,001,160,884)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 10,397,161,220,402 (Diff: 10,397,161,220,402)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 10,044,911,929,281 (Diff: 10,044,911,929,281)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 9,779,299,596,501 (Diff: 9,779,299,596,501)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 8,480,406,000,000 (Diff: 8,480,406,000,000)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 8,137,596,161,026 (Diff: 8,137,596,161,026)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 5,995,893,831,991 (Diff: 5,995,893,831,991)
-Row: nan                                                | Year: 2023
-  -> Truth: 0
-  -> Llama: 5,938,920,277,320 (Diff: 5,938,920,277,320)
+--- TOP 30 LỖI SAI CỦA GEMINI 3.1 FLASH LITE (Theo chênh lệch lớn nhất) ---
+Row: 4. Tiền trả nợ gốc vay                             | Year: 2024
+  -> Truth: -156,878,935,679,240
+  -> 3.1 Lite: 156,878,935,679,240 (Diff: 313,757,871,358,480)
+Row: 4. Tiền trả nợ gốc vay                             | Year: 2025
+  -> Truth: -140,337,963,743,432
+  -> 3.1 Lite: 140,337,963,743,432 (Diff: 280,675,927,486,864)
+Row: 4. Tiền trả nợ gốc vay                             | Year: 2022
+  -> Truth: -134,770,628,364,289
+  -> 3.1 Lite: 134,770,628,364,289 (Diff: 269,541,256,728,578)
+Row: 4. Tiền trả nợ gốc vay                             | Year: 2023
+  -> Truth: -119,947,631,065,468
+  -> 3.1 Lite: 119,947,631,065,487 (Diff: 239,895,262,130,955)
+Row: 3. Tiền chi cho vay, mua các công cụ nợ của đơn vị | Year: 2022
+  -> Truth: -55,505,793,882,381
+  -> 3.1 Lite: 55,505,793,882,381 (Diff: 111,011,587,764,762)
+Row:       - Nguyên giá                                 | Year: 2024
+  -> Truth: 860,549,015,615
+  -> 3.1 Lite: 108,146,566,348,954 (Diff: 107,286,017,333,339)
+Row:       - Nguyên giá                                 | Year: 2023
+  -> Truth: 859,667,015,615
+  -> 3.1 Lite: 106,923,132,503,430 (Diff: 106,063,465,487,815)
+Row:       - Nguyên giá                                 | Year: 2022
+  -> Truth: 859,667,015,615
+  -> 3.1 Lite: 98,976,369,133,844 (Diff: 98,116,702,118,229)
+Row: A. TÀI SẢN NGẮN HẠN                                | Year: 2022
+  -> Truth: 80,514,710,854,456
+  -> 3.1 Lite: 80,514,780,454 (Diff: -80,434,196,074,002)
+Row: 3. Tiền chi cho vay, mua các công cụ nợ của đơn vị | Year: 2023
+  -> Truth: -39,803,522,821,759
+  -> 3.1 Lite: 39,803,522,821,759 (Diff: 79,607,045,643,518)
+Row: 1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài s | Year: 2024
+  -> Truth: -35,495,026,797,327
+  -> 3.1 Lite: 35,495,026,797,327 (Diff: 70,990,053,594,654)
+Row: II. Tài sản cố định                                | Year: 2022
+  -> Truth: 70,832,915,657,865
+  -> 3.1 Lite: 7,083,291,557,865 (Diff: -63,749,624,100,000)
+Row: 3. Tiền chi cho vay, mua các công cụ nợ của đơn vị | Year: 2025
+  -> Truth: -30,319,812,195,952
+  -> 3.1 Lite: 30,319,812,195,952 (Diff: 60,639,624,391,904)
+Row: Lưu chuyển tiền thuần từ hoạt động đầu tư          | Year: 2024
+  -> Truth: -29,788,138,252,448
+  -> 3.1 Lite: 29,788,138,252,448 (Diff: 59,576,276,504,896)
+Row: 3. Tiền chi cho vay, mua các công cụ nợ của đơn vị | Year: 2024
+  -> Truth: -28,505,457,880,646
+  -> 3.1 Lite: 28,505,457,880,646 (Diff: 57,010,915,761,292)
+Row: Lưu chuyển tiền thuần từ hoạt động đầu tư          | Year: 2025
+  -> Truth: -25,814,392,868,698
+  -> 3.1 Lite: 25,814,392,868,698 (Diff: 51,628,785,737,396)
+Row: 1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài s | Year: 2025
+  -> Truth: -25,748,320,476,719
+  -> 3.1 Lite: 25,748,320,476,719 (Diff: 51,496,640,953,438)
+Row: Lưu chuyển tiền thuần từ hoạt động đầu tư          | Year: 2022
+  -> Truth: -24,626,212,744,553
+  -> 3.1 Lite: 24,626,212,744,553 (Diff: 49,252,425,489,106)
+Row:       - Giá trị hao mòn lũy kế (*)                 | Year: 2024
+  -> Truth: -300,950,552,522
+  -> 3.1 Lite: 40,902,415,373,906 (Diff: 41,203,365,926,428)
+Row: 1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài s | Year: 2022
+  -> Truth: -17,887,504,647,036
+  -> 3.1 Lite: 17,887,504,647,036 (Diff: 35,775,009,294,072)
+Row:       - Giá trị hao mòn lũy kế (*)                 | Year: 2023
+  -> Truth: -265,746,738,295
+  -> 3.1 Lite: 35,135,880,917,129 (Diff: 35,401,627,655,424)
+Row: 1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài s | Year: 2023
+  -> Truth: -17,373,946,475,964
+  -> 3.1 Lite: 17,373,946,475,964 (Diff: 34,747,892,951,928)
+Row: II. Nợ dài hạn                                     | Year: 2025
+  -> Truth: 32,492,921,616,464
+  -> 3.1 Lite: 324,929,216,464 (Diff: -32,167,992,400,000)
+Row:       - Giá trị hao mòn lũy kế (*)                 | Year: 2022
+  -> Truth: -230,555,238,655
+  -> 3.1 Lite: 28,777,215,452,308 (Diff: 29,007,770,690,963)
+Row: Lưu chuyển tiền thuần trong kỳ                     | Year: 2022
+  -> Truth: -14,126,565,762,736
+  -> 3.1 Lite: 14,126,565,762,736 (Diff: 28,253,131,525,472)
+Row: Lưu chuyển tiền thuần từ hoạt động đầu tư          | Year: 2023
+  -> Truth: -11,995,089,522,267
+  -> 3.1 Lite: 11,995,089,522,267 (Diff: 23,990,179,044,534)
+Row: Lãi lỗ sau thuế                                    | Year: 2024
+  -> Truth: 13,693,502,261,178
+  -> 3.1 Lite: 1,369,350,226,178 (Diff: -12,324,152,035,000)
+Row: Lưu chuyển tiền thuần trong kỳ                     | Year: 2024
+  -> Truth: -5,365,120,010,289
+  -> 3.1 Lite: 5,365,120,010,289 (Diff: 10,730,240,020,578)
+Row: I. Tiền và các khoản tương đương tiền              | Year: 2022
+  -> Truth: 8,324,588,920,227
+  -> 3.1 Lite: 83,245,889,227 (Diff: -8,241,343,031,000)
+Row: 6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu         | Year: 2022
+  -> Truth: -2,261,459,543,241
+  -> 3.1 Lite: 2,261,459,543,241 (Diff: 4,522,919,086,482)

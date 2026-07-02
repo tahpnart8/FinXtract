@@ -5,7 +5,6 @@ import google.generativeai as genai
 import base64
 import fitz
 import re
-from groq import Groq
 from typing import Optional, Dict, Any
 from app.config import settings
 
@@ -182,30 +181,54 @@ CASH_FLOW_KEYS = {
     "cf_fx_differences": "Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ",
     "cash_ending": "Tiền và tương đương tiền cuối kỳ",
 }
-
-
-def _build_key_list_for_prompt() -> str:
-    """Tạo danh sách key JSON cho prompt, dùng format: key (Tên tiếng Việt)"""
-    lines = []
-    lines.append("=== KẾT QUẢ HOẠT ĐỘNG KINH DOANH (Income Statement) ===")
-    for key, vn_name in INCOME_STATEMENT_KEYS.items():
-        lines.append(f'  "{key}": <số> // {vn_name}')
+def _extract_section(model, uploaded_file, ticker: str, period: str, section_name: str, section_keys: dict) -> dict:
+    """Gọi Gemini để trích xuất 1 phần cụ thể của BCTC nhằm giảm tải context length."""
+    key_list_str = "\n".join([f'  "{k}": <số> // {v}' for k, v in section_keys.items()])
     
-    lines.append("\n=== BẢNG CÂN ĐỐI KẾ TOÁN (Balance Sheet) ===")
-    for key, vn_name in BALANCE_SHEET_KEYS.items():
-        lines.append(f'  "{key}": <số> // {vn_name}')
-    
-    lines.append("\n=== LƯU CHUYỂN TIỀN TỆ (Cash Flow Statement) ===")
-    for key, vn_name in CASH_FLOW_KEYS.items():
-        lines.append(f'  "{key}": <số> // {vn_name}')
-    
-    return "\n".join(lines)
+    prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
+Nhiệm vụ: Đọc file Báo cáo tài chính đính kèm của công ty {ticker} cho kỳ {period}.
+CHỈ TẬP TRUNG trích xuất các chỉ số thuộc phần: {section_name}.
 
+QUY TẮC BẮT BUỘC:
+- Đơn vị: Giữ nguyên đơn vị gốc trong báo cáo (thường là VNĐ), KHÔNG tự ý nhân chia, KHÔNG tự ý bỏ bớt hay thêm số 0.
+- Chuẩn phân tích tài chính: TẤT CẢ CÁC KHOẢN MỤC CHI PHÍ VÀ DÒNG TIỀN CHI RA ĐỀU PHẢI LÀ SỐ DƯƠNG. Nếu trong PDF số nằm trong ngoặc đơn (ví dụ: (123.456)), bạn BẮT BUỘC phải lấy giá trị tuyệt đối là 123456.
+- Chính xác tuyệt đối: Trích xuất chính xác từng chữ số có trong bảng, không được tự ý làm tròn hay bịa thêm số liệu.
+- KHÔNG sử dụng chữ, TẤT CẢ các giá trị phải là SỐ (Integer hoặc Float).
+- Dấu phân cách hàng nghìn: Loại bỏ hết (ví dụ: 1.234.567 → 1234567).
+- Dấu thập phân: Giữ nguyên (ví dụ: 12.34).
+- Nếu KHÔNG TÌM THẤY chỉ số, BẮT BUỘC để giá trị = 0.
+- Lấy số liệu cột "Năm nay" hoặc "Cuối kỳ".
+- Trả về JSON thuần túy, TUYỆT ĐỐI KHÔNG thêm text giải thích.
+- CHỈ ĐƯỢC XUẤT RA CÁC KEY SAU (CẤM TẠO THÊM KEY KHÁC):
 
-def process_pdf_with_gemini(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+{key_list_str}
+
+Ví dụ format JSON trả về:
+{{
+  "{list(section_keys.keys())[0]}": 15000000,
+  "{list(section_keys.keys())[1]}": -20000,
+  ...tất cả các key còn lại bắt buộc phải có mặt, nếu không có số liệu thì gán bằng 0...
+}}
+"""
+    try:
+        logger.info(f"Extracting section '{section_name}' ({len(section_keys)} keys)...")
+        response = model.generate_content(
+            [uploaded_file, prompt],
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+            ),
+        )
+        if response and response.text:
+            return json.loads(response.text)
+    except Exception as e:
+        logger.error(f"Error extracting section {section_name}: {e}")
+    return {}
+
+def process_pdf_with_gemini(pdf_path: str, ticker: str, period: str, model_name: str = "gemini-3.1-flash-lite") -> tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    Sử dụng Google Gemini 2.5 Flash để đọc trực tiếp file PDF (kể cả dạng scan)
+    Sử dụng Google Gemini API để đọc trực tiếp file PDF (kể cả dạng scan)
     và trích xuất TOÀN BỘ dữ liệu tài chính sang định dạng JSON.
+    Hỗ trợ thay đổi model_name (VD: gemini-3.1-flash-lite, gemini-2.5-flash)
     Returns: (Result_JSON, Error_Message)
     """
     if not settings.GEMINI_API_KEY:
@@ -215,7 +238,7 @@ def process_pdf_with_gemini(pdf_path: str, ticker: str, period: str) -> tuple[Op
     try:
         # 1. Cấu hình Gemini
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel(model_name)
 
         # 2. Upload file PDF lên Gemini File API
         logger.info(f"Uploading PDF to Gemini: {pdf_path}")
@@ -230,48 +253,42 @@ def process_pdf_with_gemini(pdf_path: str, ticker: str, period: str) -> tuple[Op
             logger.error("Gemini file processing failed.")
             return None, "Google Gemini từ chối hoặc không thể xử lý file PDF này."
 
-        key_list = _build_key_list_for_prompt()
+        # 3. Chia để trị: Trích xuất từng phần độc lập (Divide & Conquer)
+        logger.info(f"Starting 3-phase extraction with {model_name}...")
+        
+        income_data = _extract_section(model, uploaded_file, ticker, period, "Báo cáo Kết quả Hoạt động Kinh doanh", INCOME_STATEMENT_KEYS)
+        balance_data = _extract_section(model, uploaded_file, ticker, period, "Bảng Cân đối Kế toán", BALANCE_SHEET_KEYS)
+        cashflow_data = _extract_section(model, uploaded_file, ticker, period, "Báo cáo Lưu chuyển Tiền tệ", CASH_FLOW_KEYS)
 
-        # 3. Tạo Prompt trích xuất TOÀN BỘ chỉ số
-        prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
-Nhiệm vụ: Đọc file Báo cáo tài chính (BCTC) đính kèm của công ty {ticker} cho kỳ {period}.
-
-Hãy trích xuất TOÀN BỘ các chỉ số tài chính từ 3 bảng chính:
-1. Kết quả hoạt động kinh doanh (Income Statement / Báo cáo KQKD)
-2. Bảng cân đối kế toán (Balance Sheet / BCĐKT)
-3. Lưu chuyển tiền tệ (Cash Flow Statement / LCTT)
-
-QUY TẮC BẮT BUỘC:
-- Đơn vị: Giữ nguyên đơn vị gốc trong báo cáo (thường là VNĐ hoặc triệu VNĐ). KHÔNG nhân/chia thêm.
-- Số âm: Nếu số nằm trong ngoặc đơn ví dụ (123.456.789) thì chuyển thành -123456789.
-- Dấu phân cách hàng nghìn: Loại bỏ hết (ví dụ: 1.234.567 → 1234567).
-- Dấu thập phân: Giữ nguyên nếu có (ví dụ: EPS = 3.456 → 3456 nếu không có phần thập phân, hoặc 3456.78 nếu có).
-- Nếu KHÔNG TÌM THẤY chỉ số trong BCTC, để giá trị = 0.
-- Lấy cột "Năm nay" hoặc "Cuối kỳ" (KHÔNG lấy cột "Năm trước" hay "Đầu kỳ").
-- Trả về JSON thuần túy. KHÔNG thêm bất kỳ text giải thích nào.
-
-DANH SÁCH CÁC KEY JSON VÀ TÊN TIẾNG VIỆT TƯƠNG ỨNG:
-{key_list}
-
-Trả về JSON với đúng các key trên. Ví dụ:
-{{
-  "ticker": "{ticker}",
-  "period": "{period}",
-  "revenue": 1500000000000,
-  "net_revenue": 1480000000000,
-  "cost_of_goods_sold": 1100000000000,
-  ...tất cả các key khác...
-}}
-"""
-
-        # 4. Gọi Gemini để trích xuất
-        logger.info(f"Calling Gemini 2.5 Flash for full extraction (~150 indicators)...")
-        response = model.generate_content(
-            [uploaded_file, prompt],
-            generation_config=genai.GenerationConfig(
-                response_mime_type="application/json",
-            ),
-        )
+        # 4. Gom dữ liệu và xử lý mặc định 0 cho các key bị thiếu
+        result = {"ticker": ticker, "period": period}
+        
+        all_expected_keys = {**INCOME_STATEMENT_KEYS, **BALANCE_SHEET_KEYS, **CASH_FLOW_KEYS}
+        merged_data = {**income_data, **balance_data, **cashflow_data}
+        
+        EXPENSE_KEYS = {
+            "revenue_deductions", "cost_of_goods_sold", "financial_expenses", 
+            "interest_expenses", "selling_expenses", "admin_expenses", 
+            "other_expenses", "current_tax_expense", "deferred_tax_expense",
+            "cff_repurchase_shares", "cff_repayments", "cff_finance_lease", "cff_dividends_paid"
+        }
+        
+        for k in all_expected_keys.keys():
+            val = merged_data.get(k, 0)
+            if isinstance(val, str):
+                cleaned = re.sub(r'[^\d\.\-\+]', '', val)
+                try:
+                    val = float(cleaned) if cleaned else 0
+                except:
+                    val = 0
+            
+            val = val or 0
+            
+            # Ép các chỉ tiêu chi phí/dòng tiền chi ra thành số dương theo chuẩn phân tích tài chính Excel
+            if k in EXPENSE_KEYS:
+                val = abs(val)
+                
+            result[k] = val
 
         # 5. Dọn dẹp file trên Google Cloud
         try:
@@ -280,182 +297,12 @@ Trả về JSON với đúng các key trên. Ví dụ:
         except Exception as e:
             logger.warning(f"Failed to delete temp file from Gemini: {e}")
 
-        # 6. Parse và trả về kết quả
-        if response and response.text:
-            try:
-                result = json.loads(response.text)
-                logger.info(f"Successfully extracted {len(result)} indicators for {ticker}/{period}")
-                return result, None
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON Parse Error: {e} - Raw text: {response.text}")
-                return None, "Gemini không trả về đúng định dạng JSON."
-        
-        return None, "Gemini không trả về bất kỳ dữ liệu nào."
+        logger.info(f"Successfully extracted and merged {len(all_expected_keys)} indicators for {ticker}/{period}")
+        return result, None
 
     except Exception as e:
         logger.error(f"Error processing with Gemini: {e}")
         return None, f"Lỗi kết nối Gemini API: {str(e)}"
 
 
-def _pdf_to_base64_images(pdf_path: str, max_pages: int = 10, dpi: int = 96) -> list[str]:
-    """Convert top N pages of PDF to base64 PNG images."""
-    try:
-        doc = fitz.open(pdf_path)
-        pages_to_render = min(len(doc), max_pages)
-        base64_images = []
-        
-        for i in range(pages_to_render):
-            page = doc.load_page(i)
-            # Render at 96 DPI for a balance of readability and low token cost
-            pix = page.get_pixmap(dpi=dpi)
-            img_bytes = pix.tobytes("png")
-            b64_str = base64.b64encode(img_bytes).decode("utf-8")
-            base64_images.append(b64_str)
-            
-        doc.close()
-        return base64_images
-    except Exception as e:
-        logger.error(f"Error rendering PDF to images: {e}")
-        return []
 
-def _extract_markdown_from_images(client: Groq, base64_images: list[str]) -> str:
-    """Step 1: Extract markdown tables from images using Vision model."""
-    model_name = "meta-llama/llama-4-scout-17b-16e-instruct"
-    batch_size = 5
-    full_markdown = ""
-    
-    prompt = """Bạn là một chuyên gia đánh máy (OCR). Hãy đọc tất cả các bảng biểu tài chính trong ảnh và chuyển nó thành định dạng Markdown Table. 
-Giữ nguyên mọi con số, dấu phẩy, dấu chấm, và tên cột. KHÔNG BÌNH LUẬN GÌ THÊM, CHỈ XUẤT RA MARKDOWN TABLE."""
-
-    for i in range(0, len(base64_images), batch_size):
-        batch = base64_images[i:i+batch_size]
-        logger.info(f"[Step 1] Sending batch {i//batch_size + 1} to Llama-4-Scout (Vision) to extract text...")
-        
-        content_list = [{"type": "text", "text": prompt}]
-        for b64 in batch:
-            content_list.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{b64}"}
-            })
-            
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": content_list}],
-                temperature=0.0,
-                max_tokens=4096
-            )
-            full_markdown += response.choices[0].message.content + "\n\n"
-        except Exception as e:
-            logger.error(f"Vision OCR Error in batch {i}: {e}")
-            if "Rate limit reached" in str(e) or "429" in str(e):
-                raise Exception(f"Lỗi giới hạn API Groq (Hết Token): {str(e)}")
-            raise e
-            
-        if i + batch_size < len(base64_images):
-            import time
-            time.sleep(5)
-            
-    return full_markdown
-
-def _extract_json_from_text(client: Groq, markdown_text: str, ticker: str, period: str) -> dict:
-    """Step 2: Extract JSON data from markdown text using Text model."""
-    model_name = "llama-3.3-70b-versatile"
-    key_list = _build_key_list_for_prompt()
-    
-    prompt = f"""Bạn là một chuyên gia phân tích tài chính cao cấp tại Việt Nam.
-Nhiệm vụ: Đọc đoạn văn bản/bảng biểu Markdown dưới đây (được trích xuất từ BCTC của {ticker} kỳ {period}) và điền dữ liệu vào cấu trúc JSON.
-
-ĐOẠN MARKDOWN TEXT:
-{markdown_text}
-
-QUY TẮC BẮT BUỘC:
-- Đơn vị: Giữ nguyên đơn vị gốc trong bảng. KHÔNG nhân/chia thêm.
-- TẤT CẢ CÁC GIÁ TRỊ PHẢI LÀ CHUỖI (STRING) ĐƯỢC BỌC TRONG DẤU NGOẶC KÉP "". KHÔNG ĐƯỢC TRẢ VỀ KIỂU SỐ (NUMBER).
-- Nếu model muốn làm phép tính (ví dụ: A - B), CỨ VIẾT PHÉP TÍNH VÀO TRONG CHUỖI. Ví dụ: "100 - 20".
-- Nếu KHÔNG TÌM THẤY chỉ số, để giá trị là chuỗi "0".
-- Lấy cột "Năm nay" hoặc "Cuối kỳ" (KHÔNG lấy cột "Năm trước" hay "Đầu kỳ").
-- Bắt buộc trả về định dạng JSON thuần túy. KHÔNG CÓ markdown.
-
-DANH SÁCH KEY JSON BẮT BUỘC (Phải xuất đủ tất cả các keys này):
-{key_list}
-
-Ví dụ format trả về:
-{{
-  "ticker": "{ticker}",
-  "period": "{period}",
-  "revenue": "1500000000000",
-  "net_revenue": "1500000000000 - 20000000"
-}}
-"""
-    try:
-        logger.info(f"[Step 2] Sending text to Llama-3.3-70b-Versatile (Text) to extract JSON...")
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=4096,
-            response_format={"type": "json_object"}
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        logger.error(f"Text to JSON Error: {e}")
-        return {}
-
-def process_pdf_with_groq_vision(pdf_path: str, ticker: str, period: str) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """
-    Sử dụng kiến trúc 2-Stage (Divide & Conquer) trên Groq:
-    1. OCR ảnh thành Markdown bằng Vision Model
-    2. Parse Markdown thành JSON bằng Text Model
-    """
-    if not settings.GROQ_API_KEY:
-        logger.error("GROQ_API_KEY is not set.")
-        return None, "GROQ_API_KEY chưa được cấu hình."
-
-    try:
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        
-        # 0. Render first 10 pages
-        logger.info(f"Rendering up to 10 pages of {pdf_path} for Groq...")
-        base64_images = _pdf_to_base64_images(pdf_path, max_pages=10)
-        
-        if not base64_images:
-            return None, "Không thể đọc nội dung PDF thành ảnh."
-            
-        # 1. Vision OCR
-        markdown_text = _extract_markdown_from_images(client, base64_images)
-        if not markdown_text.strip():
-            return None, "Không thể nhận diện ký tự từ ảnh (Vision Model thất bại)."
-            
-        # 2. Text to JSON
-        raw_json_data = _extract_json_from_text(client, markdown_text, ticker, period)
-        if not raw_json_data:
-            return None, "Không thể parse JSON từ Text Model."
-            
-        # 3. Clean and Evaluate Maths
-        all_results = {}
-        for k, v in raw_json_data.items():
-            if k in ["ticker", "period"]:
-                continue
-                
-            parsed_val = 0
-            if isinstance(v, str):
-                cleaned = re.sub(r'[^\d\.\-\+]', '', v)
-                try:
-                    parsed_val = eval(cleaned) if cleaned else 0
-                except Exception:
-                    parsed_val = 0
-            elif isinstance(v, (int, float)):
-                parsed_val = v
-                
-            all_results[k] = parsed_val
-                
-        all_results["ticker"] = ticker
-        all_results["period"] = period
-        
-        logger.info(f"Successfully extracted data using 2-Stage Groq Pipeline for {ticker}/{period}")
-        return all_results, None
-
-    except Exception as e:
-        logger.error(f"Error processing with Groq Pipeline: {e}")
-        return None, f"Lỗi kết nối Groq API: {str(e)}"

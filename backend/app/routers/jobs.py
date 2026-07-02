@@ -11,8 +11,9 @@ from app.models import (
     GenerateExcelRequest,
     GenerateExcelResponse
 )
-from app.services.llm_processor import process_pdf_with_gemini, process_pdf_with_groq_vision
+from app.services.llm_processor import process_pdf_with_gemini
 from app.services.excel_writer import generate_excel
+from app.services.quota_manager import get_usage, get_remaining, check_and_increment_usage, MAX_DAILY_QUOTA
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -26,15 +27,11 @@ router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 jobs_store: dict[str, dict] = {}
 
 
-def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str, ai_model: str = "groq"):
+def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str, ai_model: str = "gemini-3.1-flash-lite"):
     """Background worker: runs extraction and stores result."""
     try:
-        if ai_model == "groq":
-            logger.info(f"Using Groq Vision to process {ticker}/{period}")
-            json_data, error_msg = process_pdf_with_groq_vision(pdf_path, ticker, period)
-        else:
-            logger.info(f"Using Gemini to process {ticker}/{period}")
-            json_data, error_msg = process_pdf_with_gemini(pdf_path, ticker, period)
+        logger.info(f"Using Gemini model '{ai_model}' to process {ticker}/{period}")
+        json_data, error_msg = process_pdf_with_gemini(pdf_path, ticker, period, model_name=ai_model)
 
         if json_data:
             jobs_store[job_id] = {
@@ -63,6 +60,14 @@ def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str, ai_mod
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
+@router.get("/quota/usage", summary="Lấy số lượng quota đã dùng trong ngày")
+async def get_quota_usage():
+    return {
+        "used": get_usage(),
+        "limit": MAX_DAILY_QUOTA,
+        "remaining": get_remaining()
+    }
+
 @router.post(
     "/extract-pdf",
     summary="Upload PDF và bắt đầu trích xuất (async)",
@@ -70,13 +75,19 @@ def _run_extraction(job_id: str, pdf_path: str, ticker: str, period: str, ai_mod
 async def extract_pdf(
     ticker: str = Form(...),
     period: str = Form(...),
-    ai_model: str = Form("groq"),
+    ai_model: str = Form("gemini-3.1-flash-lite"),
     file: UploadFile = File(...)
 ):
     """
     Nhận 1 file PDF, lưu tạm, khởi chạy trích xuất Gemini ở background.
     Trả về job_id ngay lập tức (< 2 giây) để frontend poll kết quả.
     """
+    if not check_and_increment_usage(1):
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Hệ thống đã đạt giới hạn {MAX_DAILY_QUOTA} báo cáo/ngày. Vui lòng quay lại vào ngày mai!"
+        )
+
     logger.info(f"Received PDF for {ticker} - {period}")
 
     # Save uploaded file to temp (persistent, not auto-delete)
