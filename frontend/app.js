@@ -522,3 +522,33 @@ el.newQueryBtn.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(restoreState, 100);
 });
+
+// ── Welcome Guide Logic ───────────────────────────────────────────────────────
+
+const guideOverlay = $('guideOverlay');
+const guideModal = $('guideModal');
+const closeGuideBtn = $('closeGuideBtn');
+const startAppBtn = $('startAppBtn');
+const helpBtn = $('helpBtn');
+
+function openGuide() {
+    guideOverlay.classList.remove('hidden');
+    guideModal.classList.remove('hidden');
+}
+
+function closeGuide() {
+    guideOverlay.classList.add('hidden');
+    guideModal.classList.add('hidden');
+    localStorage.setItem('finxtract_guide_seen', 'true');
+}
+
+if (closeGuideBtn) closeGuideBtn.addEventListener('click', closeGuide);
+if (startAppBtn) startAppBtn.addEventListener('click', closeGuide);
+if (helpBtn) helpBtn.addEventListener('click', openGuide);
+
+// Show on first visit
+document.addEventListener('DOMContentLoaded', () => {
+    if (!localStorage.getItem('finxtract_guide_seen')) {
+        openGuide();
+    }
+});

@@ -41,6 +41,14 @@
                 </div>
             </div>
             <div class="top-bar-actions">
+                <button id="helpBtn" class="btn btn-icon" title="Hướng dẫn sử dụng"
+                    style="color: var(--green-400); border: 1px solid rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.1); border-radius: 50% !important; width: 42px; height: 42px; padding: 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
                 <div class="api-usage-badge" id="apiUsageBadge" title="Giới hạn 50 lượt trích xuất mỗi ngày">
                     <i data-lucide="zap"></i>
                     <span id="apiUsageText">0 / 50</span>
@@ -93,7 +101,7 @@
                     <div class="form-group" style="grid-column: span 2;">
                         <label><i data-lucide="cpu" class="label-icon"></i> Chọn AI Engine</label>
                         <select id="aiModelSelect" class="styled-select" disabled>
-                            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Production)</option>
+                            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
                             <!-- <option value="gemini-2.5-flash" hidden disabled>Gemini 2.5 Flash</option> -->
                         </select>
                     </div>
@@ -221,7 +229,49 @@
         <p>Author: github.com/tahpnart8</p>
     </footer>
 
-    <script src="app.js?v=9"></script>
+    <!-- ── Welcome / Guide Modal ────────────────────────────────────────── -->
+    <div class="overlay hidden" id="guideOverlay"></div>
+    <div class="guide-modal hidden" id="guideModal">
+        <div class="guide-header">
+            <div class="brand-icon" style="box-shadow: none;"><i data-lucide="bar-chart-3"></i></div>
+            <h2>Chào mừng đến với FinXtract</h2>
+        </div>
+        <div class="guide-body">
+            <p>FinXtract là hệ thống trích xuất dữ liệu tài chính tự động bằng AI, giúp bạn tiết kiệm hàng giờ nhập liệu
+                thủ công. Dưới đây là 3 bước cơ bản:</p>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <div class="guide-step-num">1</div>
+                    <div>
+                        <strong>Nhập thông tin</strong>
+                        <p>Điền Mã cổ phiếu (VD: FPT) và chọn Khoảng thời gian báo cáo cần trích xuất.</p>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">2</div>
+                    <div>
+                        <strong>Nạp báo cáo (PDF)</strong>
+                        <p>Upload file PDF tương ứng với từng năm/quý. Bấm Bắt đầu và để AI làm việc.</p>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">3</div>
+                    <div>
+                        <strong>Nhận kết quả Excel</strong>
+                        <p>Tải xuống file Excel chứa toàn bộ các chỉ tiêu CĐKT, KQKD và LCTT đã được mapping sẵn.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="guide-alert">
+                <i data-lucide="info"></i>
+                <span><strong>Giới hạn MVP:</strong> Hệ thống cho phép tối đa 50 lượt trích xuất mỗi ngày.</span>
+            </div>
+            <button class="btn btn-primary" id="startAppBtn" style="width: 100%; margin-top: 10px;">Tôi đã hiểu, Bắt đầu
+                ngay!</button>
+        </div>
+    </div>
+
+    <script src="app.js?v=10"></script>
 </body>
 
 </html>
