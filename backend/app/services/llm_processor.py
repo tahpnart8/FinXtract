@@ -3,7 +3,7 @@ import json
 import time
 import google.generativeai as genai
 import base64
-import fitz
+
 import re
 from typing import Optional, Dict, Any
 from app.config import settings
