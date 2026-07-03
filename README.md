@@ -1,6 +1,7 @@
 # 🚀 FinXtract: Automated Financial Statement Data Extraction
 
-![1783019576650](image/README/1783019576650.png)
+
+Watch demo: [youtu.be/Vn57We2R5Ik](https://youtu.be/Vn57We2R5Ik)
 
 ## 📖 Bối cảnh & Vấn đề (The Problem)
 
@@ -8,11 +9,11 @@ Chuyên gia phân tích tài chính (Financial Analysts) thường xuyên đối
 
 - **Giới hạn từ nền tảng mở:** Các trang web dữ liệu chứng khoán thường giới hạn việc tải dữ liệu (ví dụ: chỉ cho phép xuất dữ liệu tối đa 4 năm liên tiếp).
 - **Thiếu hụt độ chi tiết:** Rất khó để lấy được đầy đủ tất cả các chỉ tiêu trên cả 3 bản báo cáo (Bảng Cân đối kế toán, Báo cáo Kết quả Kinh doanh, Báo cáo Lưu chuyển tiền tệ) nếu chỉ dùng các API miễn phí.
-- **Tốn thời gian & Rủi ro sai số:** Để có dữ liệu sâu, chuyên gia buộc phải thu thập từng file Báo cáo tài chính (BCTC) từ các nguồn chính thống, đọc và nhập liệu thủ công (manual data entry) rồi merge các bảng lại với nhau. Quá trình xử lý thủ công này có thể tốn đến nửa ngày làm việc cho một mã cổ phiếu và cực kỳ dễ dẫn đến sai số (human error).
+- **Tốn thời gian & Rủi ro sai số:** Để có dữ liệu sâu, chuyên gia buộc phải thu thập từng file Báo cáo tài chính (BCTC) từ các nguồn chính thống, đọc và nhập liệu thủ công rồi merge các bảng lại với nhau. Quá trình xử lý thủ công này có thể tốn đến nửa ngày làm việc cho một mã cổ phiếu và cực kỳ dễ dẫn đến sai số.
 
 ## 💡 Giải pháp FinXtract (The Solution)
 
-**FinXtract** ra đời nhằm giải phóng sức lao động cho các chuyên gia tài chính. Thay vì cặm cụi gõ từng con số, người dùng chỉ việc nạp trực tiếp các file BCTC (định dạng PDF) gốc đã thu thập được vào hệ thống.
+**FinXtract** ra đời nhằm giải phóng sức lao động cho các chuyên gia tài chính. Thay vì cặm cụi nhập từng con số, người dùng chỉ việc nạp trực tiếp các file BCTC (định dạng PDF) gốc đã thu thập được vào hệ thống.
 
 Sử dụng cơ chế kỹ thuật trích xuất đặc biệt kết hợp với sức mạnh của **Mô hình ngôn ngữ lớn đa phương thức (Multimodal LLM)** thế hệ mới – **Google Gemini 3.1 Flash Lite**:
 
@@ -20,8 +21,8 @@ Sử dụng cơ chế kỹ thuật trích xuất đặc biệt kết hợp với
 - **Độ chính xác cao:** Khả năng nhận diện bảng biểu và hiểu ngữ cảnh tài chính giúp độ chính xác đạt ngưỡng **> 98%**, xử lý mượt mà cả các file PDF dạng scan ảnh.
 - **Tự động chuẩn hóa:** Trả về kết quả cuối cùng là một file Excel đã được mapping sẵn chuẩn chỉnh theo format phân tích tài chính.
 
-> **⚠️ Lưu ý (Giới hạn bản MVP):**
-> Do đang trong giai đoạn thử nghiệm (MVP), hệ thống hiện chỉ giới hạn trích xuất tối đa **50 file BCTC/ngày** cho toàn cục hệ thống (Global System Limit) để đảm bảo tài nguyên máy chủ.
+> **⚠️ Lưu ý:**
+> Do đang trong giai đoạn thử nghiệm (MVP), hệ thống hiện chỉ giới hạn trích xuất tối đa **50 file BCTC/ngày** cho toàn cục hệ thống để đảm bảo tài nguyên máy chủ.
 
 ## ⚙️ Cơ chế thực thi & Tech Stack
 
