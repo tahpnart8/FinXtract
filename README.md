@@ -1,5 +1,6 @@
 # 🚀 FinXtract: Automated Financial Statement Data Extraction
 
+![1783081170747](image/README/1783081170747.png)
 
 Watch demo: [youtu.be/Vn57We2R5Ik](https://youtu.be/Vn57We2R5Ik)
 
