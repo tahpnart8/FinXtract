@@ -4,7 +4,7 @@
 
 Watch demo: [youtu.be/Vn57We2R5Ik](https://youtu.be/Vn57We2R5Ik)
 
-## 📖 Bối cảnh & Vấn đề (The Problem)
+## 📖 Bối cảnh & Vấn đề
 
 Chuyên gia phân tích tài chính (Financial Analysts) thường xuyên đối mặt với những rào cản lớn khi thu thập và xử lý số liệu:
 
@@ -12,7 +12,7 @@ Chuyên gia phân tích tài chính (Financial Analysts) thường xuyên đối
 - **Thiếu hụt độ chi tiết:** Rất khó để lấy được đầy đủ tất cả các chỉ tiêu trên cả 3 bản báo cáo (Bảng Cân đối kế toán, Báo cáo Kết quả Kinh doanh, Báo cáo Lưu chuyển tiền tệ) nếu chỉ dùng các API miễn phí.
 - **Tốn thời gian & Rủi ro sai số:** Để có dữ liệu sâu, chuyên gia buộc phải thu thập từng file Báo cáo tài chính (BCTC) từ các nguồn chính thống, đọc và nhập liệu thủ công rồi merge các bảng lại với nhau. Quá trình xử lý thủ công này có thể tốn đến nửa ngày làm việc cho một mã cổ phiếu và cực kỳ dễ dẫn đến sai số.
 
-## 💡 Giải pháp FinXtract (The Solution)
+## 💡 Giải pháp FinXtract
 
 **FinXtract** ra đời nhằm giải phóng sức lao động cho các chuyên gia tài chính. Thay vì cặm cụi nhập từng con số, người dùng chỉ việc nạp trực tiếp các file BCTC (định dạng PDF) gốc đã thu thập được vào hệ thống.
 
@@ -43,7 +43,7 @@ Sử dụng cơ chế kỹ thuật trích xuất đặc biệt kết hợp với
 5. **Excel Generation:** Gom toàn bộ dữ liệu các năm, đắp vào template Excel và trả về Frontend.
 6. **Auto Cleanup:** Hủy bỏ toàn bộ file PDF tạm thời trên Server và trên Cloud của Google ngay sau khi trích xuất xong để đảm bảo quyền riêng tư và giải phóng tài nguyên.
 
-## 🚀 Hướng dẫn Cài đặt (Installation)
+## 🚀 Hướng dẫn Cài đặt 
 
 ### Yêu cầu hệ thống
 
